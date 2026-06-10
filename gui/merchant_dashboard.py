@@ -29,6 +29,20 @@ class MerchantDashboard:
         )
         self.title_lbl.pack(side="left", padx=30, pady=25)
 
+        # 👉 ADD THIS LOGOUT BUTTON HERE:
+        self.btn_logout = ctk.CTkButton(
+            self.header,
+            text="🚪 Log Out",
+            width=100,
+            height=35,
+            fg_color="#CF6679", 
+            text_color="#FFFFFF",
+            font=ctk.CTkFont(weight="bold"),
+            corner_radius=6,
+            command=self.execute_logout
+        )
+        self.btn_logout.pack(side="right", padx=30, pady=22)
+
         # ==========================================
         # 2. MAIN WORKSPACE CONTAINER
         # ==========================================
@@ -184,3 +198,40 @@ class MerchantDashboard:
                 self.ent_price.delete(0, ctk.END)
             except ValueError:
                 messagebox.showerror("Validation Error", "Invalid base cost formatting. Numeric inputs only.")
+
+    def execute_logout(self):
+        """Safely clears the dashboard and restores the login view without breaking background loops."""
+        confirm = messagebox.askyesno("Confirm Exit", "Are you sure you want to log out?")
+        if confirm:
+            try:
+                from gui.login import LoginWindow
+            except (ModuleNotFoundError, ImportError):
+                from .login import LoginWindow
+
+            def handle_re_login(user_session=None):
+                for widget in self.root.winfo_children():
+                    widget.destroy()
+                
+                role = "merchant"
+                if user_session:
+                    if hasattr(user_session, 'role'):
+                        role = str(user_session.role).lower()
+                    elif isinstance(user_session, dict) and 'role' in user_session:
+                        role = str(user_session['role']).lower()
+                    elif isinstance(user_session, str):
+                        role = user_session.lower()
+
+                if "admin" in role:
+                    from .admin_dashboard import AdminDashboard
+                    AdminDashboard(self.root, user_session)
+                elif "customer" in role:
+                    from .customer_dashboard import CustomerDashboard
+                    CustomerDashboard(self.root, user_session)
+                else:
+                    MerchantDashboard(self.root, user_session)
+
+            for widget in self.root.winfo_children():
+                widget.destroy()
+
+            self.root.title("System Access Gateway")
+            LoginWindow(self.root, on_login_success=handle_re_login)           

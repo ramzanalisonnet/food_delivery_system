@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from tkinter import ttk
+from gui.customer_dashboard import CustomerDashboard
 from services.order_service import OrderService
 from database.database import fetch_one
 
@@ -27,6 +28,20 @@ class AdminDashboard:
             text_color="#50C878"
         )
         self.title_lbl.pack(side="left", padx=30, pady=25)
+
+        # 👉 ADD THIS LOGOUT BUTTON HERE:
+        self.btn_logout = ctk.CTkButton(
+            self.header,
+            text="🚪 Log Out",
+            width=100,
+            height=35,
+            fg_color="#CF6679", 
+            text_color="#FFFFFF",
+            font=ctk.CTkFont(weight="bold"),
+            corner_radius=6,
+            command=self.execute_logout
+        )
+        self.btn_logout.pack(side="right", padx=30, pady=22)
 
         # ==========================================
         # 2. MAIN SCROLLable WORKSPACE
@@ -137,3 +152,41 @@ class AdminDashboard:
                 "end", 
                 values=(f"ORDER #{o['order_id']}", f"USER REF ID: {o['customer_id']}", f"${o['total_price']:.2f}", o['status'])
             )
+
+    def execute_logout(self):
+        """Safely clears the dashboard and restores the login view without breaking background loops."""
+        import tkinter.messagebox as messagebox
+        confirm = messagebox.askyesno("Confirm Exit", "Are you sure you want to log out?")
+        if confirm:
+            try:
+                from gui.login import LoginWindow
+            except (ModuleNotFoundError, ImportError):
+                from .login import LoginWindow
+
+            def handle_re_login(user_session=None):
+                for widget in self.root.winfo_children():
+                    widget.destroy()
+                
+                role = "admin"
+                if user_session:
+                    if hasattr(user_session, 'role'):
+                        role = str(user_session.role).lower()
+                    elif isinstance(user_session, dict) and 'role' in user_session:
+                        role = str(user_session['role']).lower()
+                    elif isinstance(user_session, str):
+                        role = user_session.lower()
+
+                if "merchant" in role or "vendor" in role:
+                    from .merchant_dashboard import MerchantDashboard
+                    MerchantDashboard(self.root, user_session)
+                elif "customer" in role:
+                    from .customer_dashboard import CustomerDashboard
+                    CustomerDashboard(self.root, user_session)
+                else:
+                    AdminDashboard(self.root, user_session)
+
+            for widget in self.root.winfo_children():
+                widget.destroy()
+
+            self.root.title("System Access Gateway")
+            LoginWindow(self.root, on_login_success=handle_re_login)        
